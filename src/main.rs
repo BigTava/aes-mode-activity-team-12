@@ -95,12 +95,21 @@ fn group(data: Vec<u8>) -> Vec<[u8; BLOCK_SIZE]> {
 
 /// Does the opposite of the group function
 fn un_group(blocks: Vec<[u8; BLOCK_SIZE]>) -> Vec<u8> {
-    todo!()
+    blocks
+        .iter()
+        .flat_map(|&block| block.to_vec())
+        .collect()
 }
 
 /// Does the opposite of the pad function.
-fn un_pad(data: Vec<u8>) -> Vec<u8> {
-    todo!()
+fn un_pad(mut data: Vec<u8>) -> Vec<u8> {
+    if let Some(&pad_len) = data.last() {
+        let len = data.len();
+        if (pad_len as usize) <= len && (pad_len as usize) <= BLOCK_SIZE {
+            data.truncate(len - (pad_len as usize));
+        }
+    }
+    data
 }
 
 /// The first mode we will implement is the Electronic Code Book, or ECB mode.
@@ -111,12 +120,36 @@ fn un_pad(data: Vec<u8>) -> Vec<u8> {
 /// One good thing about this mode is that it is parallelizable. But to see why it is
 /// insecure look at: https://www.ubiqsecurity.com/wp-content/uploads/2022/02/ECB2.png
 fn ecb_encrypt(plain_text: Vec<u8>, key: [u8; 16]) -> Vec<u8> {
-    todo!()
+    let padded_text = pad(plain_text);
+
+    // Group the padded text into 16-byte blocks
+    let blocks = group(padded_text);
+
+    // Encrypt each block and collect the results
+    let encrypted_blocks: Vec<[u8; BLOCK_SIZE]> = blocks
+        .iter()
+        .map(|&block| aes_encrypt(block, &key))
+        .collect();
+
+    un_group(encrypted_blocks)
 }
 
 /// Opposite of ecb_encrypt.
 fn ecb_decrypt(cipher_text: Vec<u8>, key: [u8; BLOCK_SIZE]) -> Vec<u8> {
-    todo!()
+    // Group the ciphertext into 16-byte blocks
+    let blocks = group(cipher_text);
+
+    // Decrypt each block and collect the results
+    let decrypted_blocks: Vec<[u8; BLOCK_SIZE]> = blocks
+        .iter()
+        .map(|&block| aes_decrypt(block, &key))
+        .collect();
+
+    // Ungroup the decrypted blocks into a single byte vector
+    let decrypted_data = un_group(decrypted_blocks);
+
+    // Remove padding
+    un_pad(decrypted_data)
 }
 
 /// The next mode, which you can implement on your own is cipherblock chaining.
