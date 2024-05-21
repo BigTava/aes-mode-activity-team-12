@@ -15,6 +15,8 @@ use aes::{
     cipher::{ generic_array::GenericArray, BlockCipher, BlockDecrypt, BlockEncrypt, KeyInit },
     Aes128,
 };
+use rand::Rng;
+mod utils;
 
 ///We're using AES 128 which has 16-byte (128 bit) blocks.
 const BLOCK_SIZE: usize = 16;
@@ -164,13 +166,49 @@ fn ecb_decrypt(cipher_text: Vec<u8>, key: [u8; BLOCK_SIZE]) -> Vec<u8> {
 /// very first block because it doesn't have a previous block. Typically this IV
 /// is inserted as the first block of ciphertext.
 fn cbc_encrypt(plain_text: Vec<u8>, key: [u8; BLOCK_SIZE]) -> Vec<u8> {
-    // Remember to generate a random initialization vector for the first block.
+    // Inputs
+    let padded_text = pad(plain_text);
+    let rand_init_vector = utils::create_rand_init_vector();
 
-    todo!()
+    let blocks = group(padded_text);
+
+    // Initial values, assuming the initialization vector is the first vector in the group
+    let mut previous_block = rand_init_vector;
+    let mut encrypted_blocks = vec![rand_init_vector];
+
+    for block in blocks {
+        // XOR input
+        let xored_block = utils::xor_block_bytes(&block, &previous_block);
+        // Encrypt with key
+        let encrypted_block = aes_encrypt(xored_block, &key);
+        encrypted_blocks.push(encrypted_block);
+        previous_block = encrypted_block;
+    }
+
+    un_group(encrypted_blocks)
 }
 
 fn cbc_decrypt(cipher_text: Vec<u8>, key: [u8; BLOCK_SIZE]) -> Vec<u8> {
-    todo!()
+    let blocks = group(cipher_text);
+
+    // The first block is the initialization vector (IV)
+    let rand_init_vector = blocks[0];
+    let encrypted_blocks = &blocks[1..];
+
+    let mut previous_block = rand_init_vector;
+    let mut decrypted_blocks = Vec::new();
+
+    for block in encrypted_blocks {
+        // Decrypt
+        let decrypted_block = aes_decrypt(*block, &key);
+        // Unxor
+        let xored_block = utils::xor_block_bytes(&decrypted_block, &previous_block);
+        decrypted_blocks.push(xored_block);
+        previous_block = *block;
+    }
+
+    let decrypted_data = un_group(decrypted_blocks);
+    un_pad(decrypted_data)
 }
 
 /// Another mode which you can implement on your own is counter mode.
@@ -200,27 +238,46 @@ fn ctr_decrypt(cipher_text: Vec<u8>, key: [u8; BLOCK_SIZE]) -> Vec<u8> {
 
 #[cfg(test)]
 mod tests {
-    use super::{ ecb_decrypt, ecb_encrypt, BLOCK_SIZE };
+    use super::{ ecb_decrypt, ecb_encrypt, BLOCK_SIZE, cbc_decrypt, cbc_encrypt };
+    const KEY: [u8; BLOCK_SIZE] = [0u8; BLOCK_SIZE];
 
     #[test]
-    fn test_ecb_simple() {
-        let key = [0u8; BLOCK_SIZE];
+    fn test_ecb() {
         let simple_text = b"Hello, AES Encryption!".to_vec();
+        let text_with_padding = b"Short".to_vec();
 
-        let encrypted_text = ecb_encrypt(simple_text.clone(), key);
-        let decrypted_text = ecb_decrypt(encrypted_text, key);
-
+        let encrypted_text = ecb_encrypt(simple_text.clone(), KEY);
+        let decrypted_text = ecb_decrypt(encrypted_text, KEY);
         assert_eq!(decrypted_text, simple_text);
+
+        let encrypted_text = ecb_encrypt(text_with_padding.clone(), KEY);
+        let decrypted_text = ecb_decrypt(encrypted_text, KEY);
+        assert_eq!(decrypted_text, text_with_padding);
     }
 
     #[test]
-    fn test_ecb_with_padding() {
-        let key = [0u8; BLOCK_SIZE];
+    fn test_cbc_simple() {
+        let simple_text = b"Hello, AES Encryption!".to_vec();
         let text_with_padding = b"Short".to_vec();
 
-        let encrypted_text = ecb_encrypt(text_with_padding.clone(), key);
-        let decrypted_text = ecb_decrypt(encrypted_text, key);
+        let encrypted_text = cbc_encrypt(plaintext.clone(), KEY);
+        let decrypted_text = cbc_decrypt(ciphertext, KEY);
 
-        assert_eq!(decrypted_text, text_with_padding);
+        assert_eq!(decrypted_text, plaintext);
+    }
+
+    #[test]
+    fn test_cbc_encrypt_decrypt_with_padding() {
+        let key = [0u8; BLOCK_SIZE];
+        let plaintext = b"Short".to_vec();
+
+        // Encrypt the plaintext
+        let ciphertext = cbc_encrypt(plaintext.clone(), key);
+
+        // Decrypt the ciphertext
+        let decrypted_text = cbc_decrypt(ciphertext, key);
+
+        // Check if the decrypted text matches the original plaintext
+        assert_eq!(decrypted_text, plaintext);
     }
 }
