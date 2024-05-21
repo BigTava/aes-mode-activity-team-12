@@ -67,11 +67,10 @@ fn aes_decrypt(data: [u8; BLOCK_SIZE], key: &[u8; BLOCK_SIZE]) -> [u8; BLOCK_SIZ
 /// another entire block containing the block length in each byte. In our case,
 /// [16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16]
 fn pad(mut data: Vec<u8>) -> Vec<u8> {
-    // When twe have a multiple the second term is 0
-    let number_pad_bytes = BLOCK_SIZE - (data.len() % BLOCK_SIZE);
+    let number_bytes_to_pad = BLOCK_SIZE - (data.len() % BLOCK_SIZE);
 
-    for _ in 0..number_pad_bytes {
-        data.push(number_pad_bytes as u8);
+    for _ in 0..number_bytes_to_pad {
+        data.push(number_bytes_to_pad as u8);
     }
 
     data
@@ -197,4 +196,31 @@ fn ctr_encrypt(plain_text: Vec<u8>, key: [u8; BLOCK_SIZE]) -> Vec<u8> {
 
 fn ctr_decrypt(cipher_text: Vec<u8>, key: [u8; BLOCK_SIZE]) -> Vec<u8> {
     todo!()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{ ecb_decrypt, ecb_encrypt, BLOCK_SIZE };
+
+    #[test]
+    fn test_ecb_simple() {
+        let key = [0u8; BLOCK_SIZE];
+        let simple_text = b"Hello, AES Encryption!".to_vec();
+
+        let encrypted_text = ecb_encrypt(simple_text.clone(), key);
+        let decrypted_text = ecb_decrypt(encrypted_text, key);
+
+        assert_eq!(decrypted_text, simple_text);
+    }
+
+    #[test]
+    fn test_ecb_with_padding() {
+        let key = [0u8; BLOCK_SIZE];
+        let text_with_padding = b"Short".to_vec();
+
+        let encrypted_text = ecb_encrypt(text_with_padding.clone(), key);
+        let decrypted_text = ecb_decrypt(encrypted_text, key);
+
+        assert_eq!(decrypted_text, text_with_padding);
+    }
 }
