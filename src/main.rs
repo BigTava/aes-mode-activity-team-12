@@ -12,7 +12,7 @@
 //! best, and can sometimes be trivially broken.
 
 use aes::{
-    cipher::{ generic_array::GenericArray, BlockCipher, BlockDecrypt, BlockEncrypt, KeyInit },
+    cipher::{generic_array::GenericArray, BlockCipher, BlockDecrypt, BlockEncrypt, KeyInit},
     Aes128,
 };
 mod utils;
@@ -96,10 +96,7 @@ fn group(data: Vec<u8>) -> Vec<[u8; BLOCK_SIZE]> {
 
 /// Does the opposite of the group function
 fn un_group(blocks: Vec<[u8; BLOCK_SIZE]>) -> Vec<u8> {
-    blocks
-        .iter()
-        .flat_map(|&block| block.to_vec())
-        .collect()
+    blocks.iter().flat_map(|&block| block.to_vec()).collect()
 }
 
 /// Does the opposite of the pad function.
@@ -256,6 +253,7 @@ fn ctr_encrypt(plain_text: Vec<u8>, key: [u8; BLOCK_SIZE]) -> Vec<u8> {
 }
 
 fn ctr_decrypt(cipher_text: Vec<u8>, key: [u8; BLOCK_SIZE]) -> Vec<u8> {
+    //
     let nonce = &cipher_text[..NONCE_SIZE];
 
     let mut plain_text = Vec::new();
@@ -269,7 +267,7 @@ fn ctr_decrypt(cipher_text: Vec<u8>, key: [u8; BLOCK_SIZE]) -> Vec<u8> {
         counter_block[NONCE_SIZE..].copy_from_slice(&counter.to_le_bytes());
 
         // Encrypt with key
-        let encrypted_counter = aes_encrypt(counter_block, &key);
+        let encrypted_counter = aes_decrypt(counter_block, &key);
 
         // XOR the encrypted counter block with the ciphertext block
         let mut decrypted_block = vec![0u8; block.len()];
